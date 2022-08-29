@@ -1,0 +1,140 @@
+// Google Spread Sheetでご確認ください
+https://docs.google.com/spreadsheets/d/1MhJzR91WHoKQOWKGpX4uNXrou_BETIGeXfsusOZe3_0/edit?usp=sharing
+
+アプリケーション：GAS
+概要：Webライターが記事を書く際に、ネットで情報収集するために使うツール。
+
+/*********************************************
+*  Google Apps Script : myFunction
+**********************************************/
+
+// 定数
+const mySheet = SpreadsheetApp.getActiveSheet();
+const sheetName = mySheet.getName();
+const encodeKeyWord = encodeURI(sheetName);
+
+// セル設定
+const keyWdCl = mySheet.getRange(1, 3);
+const rivalCl = mySheet.getRange(2, 4);
+const resultsCl = mySheet.getRange(18, 1);
+const relatedCl = mySheet.getRange(5,3,25);
+
+/**
+ * main
+ * セルの編集時に実行される
+ * @param {}
+ * @return {} 
+ * @customfunction
+ */
+function main() {
+  getSheetName();
+  getPopularWords();
+  generateUrl();
+}
+
+/**
+ * @param {}
+ * @return {アクティブシート名} 
+ * @customfunction
+ */
+function getSheetName() {
+  keyWdCl.setValue(sheetName);
+}
+
+/**
+ * @param {}
+ * @return {検索用URL}} 
+ * @customfunction
+ */
+function generateUrl() {
+  // 検索結果10件までを取得するURLを生成
+  let suggestUrl = "https://www.google.com/search?q=" + encodeKeyWord + "&num=10";
+  resultsCl.setValue(suggestUrl);
+
+  // 標準で検索したいワードがあれば追加
+  let defaultWord = " " + "まとめ";
+
+  // 参考までに競合サイト2件を取得するURLを生成
+  let rivalsUrl = "https://www.google.com/search?q=" 
+      + encodeKeyWord + encodeURIComponent(defaultWord) + "&num=2";
+  rivalCl.setValue(rivalsUrl);
+
+  // bk 検索結果の自動取得にはCustom Search APIが必要
+  // var searchResults = UrlFetchApp
+  //     .fetch("https://www.google.co.jp/search?q=" + encodeURIComponent(searchWord));
+}
+
+/**
+ * @param {}
+ * @return {頻出キーワードを抽出した配列} 
+ * @customfunction
+ */
+function getPopularWords() {
+  // シートから関連ワードを取得
+  let wordsList = relatedCl.getValues();
+  // Logger.log(wordsList);
+
+  // 各セル内の配列[]を解除（二次元配列→一次元配列）し、カンマを削除  
+  let splitedList = [];
+  for (let word of wordsList) {
+    let strWd = word.toString();
+    let wds = strWd.split(",");
+    for (let wd of wds) {
+      if (isNotEmpty(wd)) splitedList.push(wd);      
+    }
+  }
+  // Logger.log(splitedList);
+
+  // 2回以上登場したキーワードを抽出
+  let duplicateList = [];
+  for (let i = 0; i < splitedList.length; i++) {
+    let tgt = splitedList[i];
+    for (let j = i + 1; j < splitedList.length; j++) {
+      if (tgt == splitedList[j]) {
+        duplicateList.push(tgt.toString());
+        break;
+      }
+    }
+  }
+  // Logger.log(duplicateList);
+  
+  // 重複キーワードを削除
+  let popularList = removeDupulicate(duplicateList);
+  // Logger.log(popularList);
+
+  for (let i = 0; i < popularList.length; i++) {
+    mySheet.getRange(27 + i, 1).setValue(popularList[i]);
+  }
+}
+
+// 引数が空文字かNULLでなければtrueを返却
+var isNotEmpty = function(prm) {
+  // 配列であればallEmptyでなければtrueを返却
+  if (Array.isArray(prm)) {
+    for (let elem of prm) {
+      if (elem != "" | prm != null) return true;
+    }
+    return false;
+  }
+
+  let bool = prm == "" | prm == null;
+  return bool ? false : true;
+}
+
+// 重複キーワードを削除したリストを返却
+var removeDupulicate = function(duplicateList) {
+  let removedList = [];
+  for (let i = 0; i < duplicateList.length; i++) {
+    let tgt = duplicateList[i];
+    let isRemove = false;
+    for (let j = i + 1; j < duplicateList.length; j++) {
+      if (tgt == duplicateList[j]) {
+        isRemove = true;
+        break;  
+      }
+    }
+    if (!isRemove) removedList.push(tgt);
+  }
+  return removedList;
+}
+
